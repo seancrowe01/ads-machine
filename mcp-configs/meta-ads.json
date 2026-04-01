@@ -1,0 +1,12 @@
+{
+  "mcpServers": {
+    "meta-ads": {
+      "command": "python",
+      "args": ["mcp-servers/meta-ads-mcp/server.py"],
+      "env": {
+        "META_ACCESS_TOKEN": "${META_ACCESS_TOKEN}",
+        "META_AD_ACCOUNT_ID": "${META_AD_ACCOUNT_ID}"
+      }
+    }
+  }
+}

@@ -1,0 +1,94 @@
+# YOUR_BUSINESS_NAME — Ads Machine
+
+## Business
+| Field | Value |
+|-------|-------|
+| Business | YOUR_BUSINESS_NAME |
+| Website | YOUR_WEBSITE |
+| Niche | YOUR_NICHE |
+| Offer | YOUR_OFFER |
+| Price Point | YOUR_PRICE_POINT |
+
+## Target Audience
+| Field | Value |
+|-------|-------|
+| Age Range | YOUR_AGE_RANGE |
+| Gender | YOUR_GENDER |
+| Location | YOUR_LOCATION |
+| Pain Point | YOUR_PAIN_POINT |
+| Desired Outcome | YOUR_DESIRED_OUTCOME |
+
+## Ad Research Config
+| Field | Value |
+|-------|-------|
+| Airtable Base ID | YOUR_AIRTABLE_BASE_ID |
+| Competitors Table | YOUR_COMPETITORS_TABLE_ID |
+| Ad Swipe File Table | YOUR_SWIPE_FILE_TABLE_ID |
+| Ad Pipeline Table | YOUR_PIPELINE_TABLE_ID |
+
+### Niche Tiers
+| Tier | Competitors |
+|------|-------------|
+| Direct | YOUR_DIRECT_COMPETITORS |
+| Adjacent | YOUR_ADJACENT_COMPETITORS |
+| Aspirational | YOUR_ASPIRATIONAL_COMPETITORS |
+
+## Meta Ads Config
+| Field | Value |
+|-------|-------|
+| Ad Account ID | YOUR_AD_ACCOUNT_ID |
+| Page ID | YOUR_PAGE_ID |
+| Pixel ID | YOUR_PIXEL_ID |
+
+## KPI Targets
+| KPI | Target |
+|-----|--------|
+| Target CPL | YOUR_TARGET_CPL |
+| Target ROAS | YOUR_TARGET_ROAS |
+| Target CPA | YOUR_TARGET_CPA |
+| Monthly Budget | YOUR_MONTHLY_BUDGET |
+
+## Installed Skills
+| Command | What It Does |
+|---------|-------------|
+| `/ads-setup` | One-time installation wizard |
+| `/ad-poller` | Scrape competitors from Meta Ad Library |
+| `/ad-analyzer` | Transcribe, classify, and score ads |
+| `/ad-swipe` | Search and browse the swipe file |
+| `/ad-ideator` | Generate 5 variations from 1 winner |
+| `/ad-scripter` | Write video scripts and ad copy |
+| `/ad-brief` | Create filming cards and shot lists |
+| `/ad-launch` | Launch Meta campaigns via API |
+| `/ad-monitor` | Track performance, kill/watch/scale |
+
+## Connected Tools
+| Tool | Status |
+|------|--------|
+| Airtable MCP | YOUR_AIRTABLE_STATUS |
+| Apify MCP | YOUR_APIFY_STATUS |
+| Meta Ads MCP | YOUR_META_STATUS |
+| Slack MCP | YOUR_SLACK_STATUS |
+| n8n MCP | YOUR_N8N_STATUS |
+
+## Campaign Structure
+- Post-Andromeda: 1 campaign, 1 ad set, 10-50 ads
+- Advantage Plus targeting — algorithm handles audiences
+- Budget at ad set level (ABO for testing, CBO for scaling)
+- All ads launch PAUSED until explicit confirmation
+
+## Naming Convention
+All creatives follow: `[ClientCode]_[CampaignType]_[Angle]_[Format]_[v#]`
+Example: `BIZ_Growth_PainPoint_Video_v1`
+
+## Reference Files
+All reference material lives in `reference/` — read before writing copy or making decisions:
+- `campaign-setup.md` — Post-Andromeda campaign architecture
+- `creative-strategy.md` — Hook rates, script formula, ad formats
+- `kpi-benchmarks.md` — Benchmarks and kill/watch/scale decision rules
+- `ad-frameworks.md` — PAS, AIDA, Story, Before/After, Controversy
+- `hook-swipe-file.md` — Proven ad hooks (grows via the loop)
+- `copy-patterns.md` — Primary text, headline, and CTA patterns
+- `visual-styles.md` — UGC, talking head, motion graphics specs
+- `troubleshooting.md` — Lead gen matrix and CRO checklist
+- `pixel-tracking.md` — CAPI setup and event filtering
+- `retargeting.md` — Retargeting strategy framework

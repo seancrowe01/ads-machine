@@ -1,0 +1,34 @@
+# Environment (keep .env.example, ignore actual env files)
+.env
+.env.local
+!.env.example
+
+# Node
+node_modules/
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+venv/
+
+# Temp files from ad analysis
+tmp/
+*.wav
+*.mp3
+*.mp4
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Working/source files (not for public repo)
+generate-blueprint.py
+*.excalidraw
+ads-machine-blueprint.png
+
+# Claude Code local config
+.claude/settings.local.json
+
+# MCP local config (contains API keys)
+.mcp.json
