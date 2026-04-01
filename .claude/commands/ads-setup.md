@@ -29,7 +29,9 @@ Ask these questions one section at a time. 3-4 questions per prompt. Wait for an
 **Section 3: Your Competitors**
 1. List 3-5 direct competitors (businesses selling similar things to similar people)
 2. List 1-3 aspirational competitors (bigger brands you admire or want to learn from)
-3. For each competitor: do you have their Facebook Page ID? (If not, explain how to find it: go to their Facebook page > About > Page Transparency > Page ID)
+3. For each competitor: do you have their Facebook Page URL or Page ID?
+   - Accept ANY of these formats: full URL (facebook.com/pagename), page slug (pagename), numeric Page ID, or Ad Library URL
+   - You will auto-resolve Page IDs in Phase 2 -- the user does NOT need to find numeric IDs manually
 
 **Section 4: Your Ad Account**
 1. Do you have a Meta ad account? What is the ad account ID? (format: act_XXXXXXXXX)
@@ -49,9 +51,46 @@ Ask these questions one section at a time. 3-4 questions per prompt. Wait for an
 
 ---
 
-## Phase 2 -- Create Airtable Tables
+## Phase 2 -- Resolve Page IDs and Create Airtable Tables
 
-Use the Airtable MCP to create 3 tables in the user's base.
+### Step 0: Auto-Resolve Facebook Page IDs
+
+Before creating tables, resolve all competitor Page IDs automatically.
+
+For each competitor that has a Facebook Page URL (not a numeric ID):
+
+**Actor:** `apify/facebook-pages-scraper` (official Apify -- 38k users, 99.5% success)
+
+```json
+{
+  "startUrls": [
+    {"url": "https://www.facebook.com/{page_slug_1}/"},
+    {"url": "https://www.facebook.com/{page_slug_2}/"},
+    {"url": "https://www.facebook.com/{page_slug_3}/"}
+  ]
+}
+```
+
+Run all pages in a single call (batch). From the response, extract:
+- `pageAdLibrary.id` -- this is the Ad Library Page ID needed for scraping
+- `title` -- confirmed page name
+- `website` -- their website URL
+- `category` -- their business category
+- `ad_status` -- whether they are currently running ads
+
+If a user provided an Ad Library URL, extract the Page ID from the `view_all_page_id=` parameter directly -- no scraping needed.
+
+Print the resolved results:
+```
+Resolved Page IDs:
+  1. Tribe Belfast (tribebfs) -> 358150048361691 [Running ads]
+  2. HENCH (HENCHgymbelfast) -> 334711226566878 [No ads]
+  ...
+```
+
+If resolution fails for any page, warn the user and ask them to provide the numeric Page ID manually (facebook.com/ads/library > search page name > copy from URL).
+
+---
 
 ### Table 1: Competitors
 
@@ -75,6 +114,7 @@ Create table with these fields:
 - `Page Name` (singleLineText)
 - `Ad Library URL` (url)
 - `Status` (singleSelect: options `Active`, `Killed`, `Winner`, `Starred`)
+- `Ad Active Status` (singleSelect: options `Active`, `Inactive`) -- what Meta reports
 - `Start Date` (date, dateFormat name `iso`)
 - `End Date` (date, dateFormat name `iso`)
 - `Days Active` (number, precision 0)
@@ -261,7 +301,7 @@ To update your config later, edit CLAUDE.md directly.
 
 1. Ask questions ONE SECTION AT A TIME. Do not dump all 5 sections at once.
 2. Wait for the user to answer before moving to the next section.
-3. If the user does not have a Facebook Page ID for a competitor, explain how to find it: Facebook page > About > Page Transparency > Page ID. Offer to help them look it up.
+3. If the user provides a Facebook Page URL instead of a numeric ID, auto-resolve it using `apify/facebook-pages-scraper`. Only fall back to manual lookup if the resolver fails.
 4. If Airtable table creation fails, provide manual setup instructions as fallback (link to `docs/airtable-setup.md`).
 5. Never store API keys in CLAUDE.md or any tracked file. Keys stay in `.env` only.
 6. The CLAUDE.md is the single source of truth. All other skills read from it at runtime.

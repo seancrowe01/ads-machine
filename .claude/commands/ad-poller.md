@@ -58,26 +58,80 @@ If no competitors found, tell the user to populate the Competitors table first o
 
 ---
 
+## Step 1b: Resolve Page IDs (if needed)
+
+If any competitor has a Facebook Page URL but no numeric Page ID, resolve it automatically:
+
+**Actor:** `apify/facebook-pages-scraper` (official Apify -- 38k users, 99.5% success)
+
+```json
+{
+  "startUrls": [{"url": "https://www.facebook.com/{page_slug}/"}]
+}
+```
+
+The response includes `pageAdLibrary.id` -- that is the Ad Library Page ID. Update the Competitors table with the resolved ID.
+
+If the resolver fails, tell the user to find it manually: facebook.com/ads/library > search the page name > copy `view_all_page_id=` from the URL.
+
+---
+
 ## Step 2: Scrape Each Competitor via Apify
 
-For each competitor, run the Apify Facebook Ad Library scraper.
+For each competitor, scrape ALL ads (active + inactive/historical) from the Meta Ad Library.
 
-**Actor:** `curious_coder~facebook-ads-library-scraper`
+### Primary Actor: `apify/facebook-ads-scraper`
+
+Official Apify actor. 16k+ users, 99.4% success rate. Most reliable long-term.
 
 **Input per competitor:**
 ```json
 {
-  "urls": [{"url": "https://www.facebook.com/ads/library/?active_status=active&ad_type=all&country=US&is_targeted_country=false&media_type=all&search_type=page&sort_data[direction]=desc&sort_data[mode]=total_impressions&view_all_page_id={PAGE_ID}"}],
-  "maxAds": 50
+  "startUrls": [{"url": "https://www.facebook.com/ads/library/?active_status=all&ad_type=all&country=ALL&is_targeted_country=false&media_type=all&search_type=page&sort_data[direction]=desc&sort_data[mode]=total_impressions&view_all_page_id={PAGE_ID}"}],
+  "resultsLimit": 100
 }
 ```
 
-Use the Apify MCP `call-actor` tool to run this. Set `async: false` so it waits for results.
+Key URL parameters:
+- `active_status=all` -- pulls active AND historical/inactive ads
+- `sort_data[mode]=total_impressions` -- highest impression ads first
+- `country=ALL` -- all countries (change to `GB`, `US`, etc. to filter)
 
-**IMPORTANT:**
+Use the Apify MCP `call-actor` tool. Set `async: false` so it waits for results.
+
+### Fallback Actor 1: `curious_coder~facebook-ads-library-scraper`
+
+Use if the primary actor is unavailable or returns errors.
+
+```json
+{
+  "urls": [{"url": "https://www.facebook.com/ads/library/?active_status=all&ad_type=all&country=ALL&media_type=all&search_type=page&view_all_page_id={PAGE_ID}"}],
+  "scrapePageAds.activeStatus": "all",
+  "scrapePageAds.sortBy": "impressions_desc",
+  "count": 100
+}
+```
+
+### Fallback Actor 2: `whoareyouanas/meta-ad-scraper`
+
+Simplest input -- takes Page ID directly.
+
+```json
+{
+  "pageId": "{PAGE_ID}",
+  "activeStatus": "all",
+  "country": "ALL",
+  "sortMode": "total_impressions",
+  "sortDirection": "desc"
+}
+```
+
+### Scraping rules
+
 - Run competitors in sequence (not parallel) to avoid Apify rate limits
-- Each scrape takes 30-90 seconds
+- Each scrape takes 30-120 seconds depending on ad count
 - Print progress after each: `[{N}/{total}] {Name}: {count} ads scraped`
+- If the primary actor fails on a competitor, retry once. If it fails again, try Fallback 1. Log which actor succeeded.
 
 ---
 
@@ -89,15 +143,19 @@ Before inserting, fetch existing Ad Archive IDs from the Swipe File:
 Use Airtable MCP: list_records
   base_id: {from CLAUDE.md}
   table_id: {Swipe File table ID}
-  fields: Ad Archive ID, Status, Start Date
+  fields: Ad Archive ID, Status, Start Date, Ad Active Status
 ```
 
 Build a set of existing Ad Archive IDs.
 
 **Dedup logic:**
-- Ad in Airtable but NOT in new scrape = mark `Status` -> `Killed`, set `End Date` to today
-- Ad in new scrape AND already in Airtable (Active) = skip, no update needed
 - Ad in new scrape but NOT in Airtable = INSERT as new record
+- Ad in new scrape AND already in Airtable = update `Ad Active Status` if changed (active -> inactive or vice versa), otherwise skip
+- Ad in Airtable (Status = Active) but NOT in any new scrape AND was previously active = mark `Status` -> `Killed`, set `End Date` to today
+
+**IMPORTANT:** When scraping with `active_status=all`, the source data includes both active and inactive ads. The `Ad Active Status` field tracks the Meta status. The `Status` field tracks YOUR status (Active, Killed, Winner, Starred). These are different things:
+- `Ad Active Status` = what Meta says (Active or Inactive)
+- `Status` = your classification (Active in swipe file, Killed from swipe file, Winner, Starred)
 
 ---
 
@@ -105,29 +163,49 @@ Build a set of existing Ad Archive IDs.
 
 For each new ad, transform the Apify response into an Airtable record.
 
-**Key field mappings:**
+**Key field mappings (Primary actor: `apify/facebook-ads-scraper`):**
 
-| Swipe File Field | Source |
-|-----------------|--------|
-| Ad Archive ID | `ad.ad_archive_id` (string) |
-| Competitor | Competitor name (text) |
-| Page Name | `snapshot.page_name` |
-| Ad Library URL | `https://www.facebook.com/ads/library/?id={ad_archive_id}` |
-| Status | `Active` |
-| Start Date | Convert `ad.start_date` from unix timestamp: `datetime.utcfromtimestamp(int(ts))` |
-| Display Format | Map: VIDEO -> Video, IMAGE -> Image, CAROUSEL -> Carousel, DCO -> DCO |
-| Body Text | `snapshot.body.text` (preserve formatting) |
-| Title | `snapshot.title` |
-| CTA Type | `snapshot.cta_type` |
-| CTA Text | `snapshot.cta_text` |
-| Link URL | `snapshot.link_url` |
-| Video URL | `snapshot.videos[0].video_hd_url` or `video_sd_url` |
-| Image URL | `snapshot.images[0].original_image_url` or `resized_image_url` |
-| Word Count | Count words in Body Text |
-| Hook Copy | First line of Body Text (up to first period or newline) |
-| Scrape Date | Today's date |
-| Scrape Batch ID | Apify dataset ID |
-| Is Analyzed | false |
+The official actor output uses a flat structure. Map fields as follows:
+
+| Swipe File Field | Source | Notes |
+|-----------------|--------|-------|
+| Ad Archive ID | `adArchiveID` (string) | Primary dedup key |
+| Competitor | Competitor name (text) | From your Competitors table |
+| Page Name | `pageName` | |
+| Ad Library URL | `https://www.facebook.com/ads/library/?id={adArchiveID}` | Construct from ID |
+| Status | `Active` | Your classification -- always start as Active |
+| Ad Active Status | `isActive` or derive from `startDate`/`endDate` | Meta's status: `Active` or `Inactive` |
+| Start Date | `startDate` | May be ISO string or unix timestamp -- handle both |
+| End Date | `endDate` | Only present for inactive ads |
+| Display Format | Map from media: has video = `Video`, has image = `Image`, multiple images = `Carousel`, none = `DCO` | |
+| Body Text | `bodyText` or `snapshot.body.text` | Field name varies by actor -- check both |
+| Title | `title` or `snapshot.title` | |
+| CTA Type | `ctaType` or `snapshot.cta_type` | |
+| CTA Text | `ctaText` or `snapshot.cta_text` | |
+| Link URL | `linkUrl` or `snapshot.link_url` | |
+| Video URL | Look for `videoHDUrl`, `videoSDUrl`, `snapshot.videos[0].video_hd_url` | HD preferred, SD fallback |
+| Image URL | Look for `imageUrl`, `originalImageUrl`, `snapshot.images[0].original_image_url` | |
+| Word Count | Count words in Body Text | |
+| Hook Copy | First line of Body Text (up to first period or newline) | |
+| Scrape Date | Today's date | |
+| Scrape Batch ID | Apify dataset ID | |
+| Is Analyzed | false | |
+
+**IMPORTANT: Output fields vary between actors.** The primary actor, Fallback 1, and Fallback 2 all use slightly different field names. When processing results:
+1. Log the first result to see the exact field names
+2. Try the primary field name first, then known alternatives
+3. If a field is missing, leave it blank rather than erroring
+
+**Fallback field name mappings:**
+
+| Field | Primary (`apify/facebook-ads-scraper`) | Fallback 1 (`curious_coder`) | Fallback 2 (`whoareyouanas`) |
+|-------|---------------------------------------|------------------------------|------------------------------|
+| Archive ID | `adArchiveID` | `ad_archive_id` | `adArchiveID` |
+| Body text | `bodyText` | `snapshot.body.text` | `description` |
+| Page name | `pageName` | `snapshot.page_name` | `brandName` |
+| Start date | `startDate` | `start_date` (unix) | `startDate` |
+| Video URL | `videoHDUrl` | `snapshot.videos[0].video_hd_url` | `videoUrl` |
+| Image URL | `imageUrl` | `snapshot.images[0].original_image_url` | `imageUrl` |
 
 **Insert in batches of 10** (Airtable limit per request).
 
@@ -211,13 +289,15 @@ Next step: Run /ad-analyzer to transcribe and classify new ads.
 
 ## CRITICAL RULES
 
-1. **Apify actor is `curious_coder~facebook-ads-library-scraper`** -- not the official Apify scraper. The input format is different.
-2. **Start dates are unix timestamps** in the Apify response. Convert with `datetime.utcfromtimestamp(int(ts))`.
-3. **DCO ads have no media URLs.** Display format = DCO means Meta assembles the creative dynamically. Still insert the record -- the copy is useful.
-4. **Dedup on Ad Archive ID.** Same ad can appear in multiple scrapes.
-5. **Airtable batch limit is 10 records per request.** Always batch creates and updates.
-6. **Facebook Page ID vs Profile ID:** The Competitors table stores the Ad Library page ID, NOT the profile ID.
-7. **Run competitors in sequence.** Parallel scraping hits Apify rate limits.
-8. **Never delete records.** Mark killed ads as Killed with an End Date. History matters.
-9. **Apify actor dependency:** This skill depends on a third-party Apify actor (`curious_coder~facebook-ads-library-scraper`). If it is unavailable or removed, search the Apify Store for alternative Facebook Ad Library scrapers. The input/output format may differ -- check the actor's README before switching.
-10. **Fallback if Apify is down:** You can manually browse the Meta Ad Library at facebook.com/ads/library and add records to the Swipe File via Airtable directly. The rest of the pipeline (analyzer, ideator, scripter) still works.
+1. **Primary actor is `apify/facebook-ads-scraper`** (official Apify, 16k+ users, 99.4% success). Fallback 1: `curious_coder~facebook-ads-library-scraper`. Fallback 2: `whoareyouanas/meta-ad-scraper`.
+2. **Always scrape with `active_status=all`** to get both active and historical/inactive ads. Inactive ads that ran 60+ days are proven winners.
+3. **Start dates may be ISO strings or unix timestamps** depending on the actor. Handle both: try parsing as ISO first, then as unix timestamp.
+4. **DCO ads have no media URLs.** Display format = DCO means Meta assembles the creative dynamically. Still insert the record -- the copy is useful.
+5. **Dedup on Ad Archive ID.** Same ad can appear in multiple scrapes.
+6. **Airtable batch limit is 10 records per request.** Always batch creates and updates.
+7. **Facebook Page ID vs Profile ID:** The Competitors table stores the Ad Library page ID, NOT the profile ID. Use `apify/facebook-pages-scraper` to resolve page URLs to Ad Library IDs (the `pageAdLibrary.id` field).
+8. **Run competitors in sequence.** Parallel scraping hits Apify rate limits.
+9. **Never delete records.** Mark killed ads as Killed with an End Date. History matters.
+10. **Ad Active Status vs Status:** `Ad Active Status` is what Meta reports (Active/Inactive). `Status` is your swipe file classification (Active, Killed, Winner, Starred). An ad can be `Ad Active Status = Inactive` but `Status = Winner` -- that means it ran successfully and was turned off after scaling.
+11. **If the primary actor fails**, retry once. If it fails again, switch to Fallback 1. If that fails, try Fallback 2. Log which actor worked for each competitor.
+12. **Fallback if all Apify actors are down:** You can manually browse the Meta Ad Library at facebook.com/ads/library and add records to the Swipe File via Airtable directly. The rest of the pipeline (analyzer, ideator, scripter) still works.
