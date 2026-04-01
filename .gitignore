@@ -22,6 +22,9 @@ tmp/
 .DS_Store
 Thumbs.db
 
+# User-generated launch plans
+launch-plans/
+
 # Working/source files (not for public repo)
 generate-blueprint.py
 *.excalidraw

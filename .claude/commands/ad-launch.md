@@ -120,7 +120,50 @@ LAUNCH CHECKLIST
 [ ] Activate campaign
 ```
 
-### Step 4: Update Pipeline Record
+### Step 4: Export Options
+
+After showing the blueprint, ask:
+
+```
+How do you want this?
+
+1. Terminal only (already shown above)
+2. Save as Markdown file
+3. Save as Word document (.docx)
+4. All of the above
+```
+
+**If Markdown:** Save to `{project_root}/launch-plans/{campaign_name}_{date}.md` with the full blueprint formatted in clean markdown.
+
+**If Word (.docx):** Generate a Word document using Python:
+
+```python
+from docx import Document
+from docx.shared import Pt, Inches
+from datetime import date
+
+doc = Document()
+doc.add_heading('Campaign Launch Plan', 0)
+doc.add_paragraph(f'Campaign: {campaign_name}')
+doc.add_paragraph(f'Date: {date.today().isoformat()}')
+doc.add_paragraph(f'Prepared by: The Ads Machine')
+
+# Add each section: Campaign, Ad Set, Targeting, Creative, Checklist
+# Use doc.add_heading() for sections, doc.add_paragraph() for details
+# Use tables for structured data (targeting, creative specs)
+
+doc.save(f'{project_root}/launch-plans/{campaign_name}_{date}.docx')
+```
+
+If `python-docx` is not installed, install it first: `pip install python-docx`
+
+Create the `launch-plans/` folder if it does not exist.
+
+Print: `Launch plan saved to launch-plans/{filename}`
+
+---
+
+### Step 5: Update Pipeline Record
 
 ```
 Use Airtable MCP: update_records
