@@ -163,35 +163,38 @@ Build a set of existing Ad Archive IDs.
 
 For each new ad, transform the Apify response into an Airtable record.
 
-**Key field mappings (Primary actor: `apify/facebook-ads-scraper`):**
+**Key field mappings (Primary actor: `apify/facebook-ads-scraper`) -- CONFIRMED via live test:**
 
-The official actor output uses a flat structure. Map fields as follows:
-
-| Swipe File Field | Source | Notes |
-|-----------------|--------|-------|
-| Ad Archive ID | `adArchiveID` (string) | Primary dedup key |
-| Competitor | Competitor name (text) | From your Competitors table |
-| Page Name | `pageName` | |
-| Ad Library URL | `https://www.facebook.com/ads/library/?id={adArchiveID}` | Construct from ID |
+| Swipe File Field | Source Path | Notes |
+|-----------------|------------|-------|
+| Ad Archive ID | `adArchiveId` | String. Primary dedup key. Also available as `adArchiveID` |
+| Competitor | Competitor name from your table | Not in the scrape output -- you add this |
+| Page Name | `pageName` | Top-level field |
+| Ad Library URL | `https://www.facebook.com/ads/library/?id={adArchiveId}` | Construct from ID |
 | Status | `Active` | Your classification -- always start as Active |
-| Ad Active Status | `isActive` or derive from `startDate`/`endDate` | Meta's status: `Active` or `Inactive` |
-| Start Date | `startDate` | May be ISO string or unix timestamp -- handle both |
-| End Date | `endDate` | Only present for inactive ads |
-| Display Format | Map from media: has video = `Video`, has image = `Image`, multiple images = `Carousel`, none = `DCO` | |
-| Body Text | `bodyText` or `snapshot.body.text` | Field name varies by actor -- check both |
-| Title | `title` or `snapshot.title` | |
-| CTA Type | `ctaType` or `snapshot.cta_type` | |
-| CTA Text | `ctaText` or `snapshot.cta_text` | |
-| Link URL | `linkUrl` or `snapshot.link_url` | |
-| Video URL | Look for `videoHDUrl`, `videoSDUrl`, `snapshot.videos[0].video_hd_url` | HD preferred, SD fallback |
-| Image URL | Look for `imageUrl`, `originalImageUrl`, `snapshot.images[0].original_image_url` | |
-| Word Count | Count words in Body Text | |
+| Ad Active Status | `isActive` (boolean) | `true` = Active, `false` = Inactive. Convert to text for Airtable |
+| Start Date | `startDateFormatted` | ISO string e.g. `2026-02-13T08:00:00.000Z`. Also `startDate` as unix timestamp |
+| End Date | `endDateFormatted` | ISO string. Present for ALL ads (active ads show today's date) |
+| Display Format | `snapshot.displayFormat` | Values: `VIDEO`, `IMAGE`, `DCO`, `CAROUSEL`. Map to title case for Airtable |
+| Body Text | `snapshot.body.text` | Full ad copy with formatting preserved |
+| Title | `snapshot.title` | May be `{{product.name}}` for DCO ads -- skip those |
+| CTA Type | `snapshot.ctaType` | e.g. `LEARN_MORE`, `SIGN_UP`, `APPLY_NOW` |
+| CTA Text | `snapshot.ctaText` | e.g. `Learn more`, `Sign up`, `Apply now` |
+| Link URL | `snapshot.linkUrl` | Landing page URL |
+| Video URL | `snapshot.videos[0].videoHdUrl` | HD preferred. Fallback: `snapshot.videos[0].videoSdUrl` |
+| Image URL | `snapshot.images[0].originalImageUrl` | For carousels, use `snapshot.cards[0].originalImageUrl` |
+| Publisher Platforms | `publisherPlatform` | Array: `["FACEBOOK", "INSTAGRAM", "AUDIENCE_NETWORK"]` |
+| Word Count | Count words in `snapshot.body.text` | |
 | Hook Copy | First line of Body Text (up to first period or newline) | |
 | Scrape Date | Today's date | |
-| Scrape Batch ID | Apify dataset ID | |
+| Scrape Batch ID | Apify dataset ID | From the `call-actor` response |
 | Is Analyzed | false | |
 
-**IMPORTANT: Output fields vary between actors.** The primary actor, Fallback 1, and Fallback 2 all use slightly different field names. When processing results:
+**DCO ads:** When `displayFormat` = `DCO`, the body text is often `{{product.brand}}` and title is `{{product.name}}`. These are Meta's dynamic templates. The REAL copy is in `snapshot.cards[].body` and `snapshot.extraTexts[].text`. Extract copy from cards first, then extraTexts as fallback.
+
+**Carousel ads:** Creative data is in `snapshot.cards[]` array. Each card has its own `body`, `title`, `ctaType`, `originalImageUrl`, `videoSdUrl`.
+
+**IMPORTANT: Output fields vary between actors.** When processing results:
 1. Log the first result to see the exact field names
 2. Try the primary field name first, then known alternatives
 3. If a field is missing, leave it blank rather than erroring
@@ -200,12 +203,14 @@ The official actor output uses a flat structure. Map fields as follows:
 
 | Field | Primary (`apify/facebook-ads-scraper`) | Fallback 1 (`curious_coder`) | Fallback 2 (`whoareyouanas`) |
 |-------|---------------------------------------|------------------------------|------------------------------|
-| Archive ID | `adArchiveID` | `ad_archive_id` | `adArchiveID` |
-| Body text | `bodyText` | `snapshot.body.text` | `description` |
+| Archive ID | `adArchiveId` | `ad_archive_id` | `adArchiveID` |
+| Body text | `snapshot.body.text` | `snapshot.body.text` | `description` |
 | Page name | `pageName` | `snapshot.page_name` | `brandName` |
-| Start date | `startDate` | `start_date` (unix) | `startDate` |
-| Video URL | `videoHDUrl` | `snapshot.videos[0].video_hd_url` | `videoUrl` |
-| Image URL | `imageUrl` | `snapshot.images[0].original_image_url` | `imageUrl` |
+| Start date | `startDateFormatted` (ISO) | `start_date` (unix) | `startDate` |
+| Active status | `isActive` (boolean) | `scrapePageAds.activeStatus` | `activeStatus` |
+| Video URL | `snapshot.videos[0].videoHdUrl` | `snapshot.videos[0].video_hd_url` | `videoUrl` |
+| Image URL | `snapshot.images[0].originalImageUrl` | `snapshot.images[0].original_image_url` | `imageUrl` |
+| Display format | `snapshot.displayFormat` | `snapshot.displayFormat` | `mediaType` |
 
 **Insert in batches of 10** (Airtable limit per request).
 
