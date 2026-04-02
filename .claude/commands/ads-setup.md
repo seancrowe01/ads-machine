@@ -27,21 +27,51 @@ Ask these questions one section at a time. 3-4 questions per prompt. Wait for an
 3. What result are they looking for?
 
 **Section 3: Your Competitors**
-1. List 3-5 direct competitors (businesses selling similar things to similar people)
-2. List 1-3 aspirational competitors (bigger brands you admire or want to learn from)
-   - Tell the user: "We pre-load Alex Hormozi as a default hook farm. He tests 200 ads at any time -- the ones that survive 60+ days are proven winners and their hooks land in your database automatically. You can remove him or add others."
+1. List any direct competitors you already know (businesses selling similar things to similar people)
+   - Accept ANY format: Facebook page URL, page slug, business name, or Ad Library link
+   - If they don't know any, that's fine -- the auto-discovery in Step 2 will find them
+2. List any aspirational competitors (bigger brands they admire). Optional.
+3. Tell the user: "We also pre-load Alex Hormozi as a default framework source. He tests 200 ads at any time. His Long-Runner hooks get pulled into your database as framework inspiration -- not to copy, but to study what structures work. You can remove him or add others."
    - **Cost note:** First scrape of a big account like Hormozi pulls ~2000 ads ($0.10 Apify). After that, daily runs only catch new ads so costs drop to near zero. Apify free tier ($5/month) covers ~5 competitors scraped daily.
-3. For each competitor: do you have their Facebook Page URL or Page ID?
-   - Accept ANY of these formats: full URL (facebook.com/pagename), page slug (pagename), numeric Page ID, or Ad Library URL
-   - You will auto-resolve Page IDs in Phase 2 -- the user does NOT need to find numeric IDs manually
 
-**Default Aspirational Competitors (pre-loaded):**
+**Default pre-loaded:**
 
-| Name | Facebook Page ID | Niche Tier |
-|---|---|---|
-| Alex Hormozi | 116482854782233 | Aspirational |
+| Name | Facebook Page ID | Niche Tier | Why |
+|---|---|---|---|
+| Alex Hormozi | 116482854782233 | Aspirational | Framework source -- 200 ads at any time, Long-Runner hooks as structural inspiration |
 
-These get added to the Competitors table automatically during setup. The user can remove them or add more.
+### Auto-Discover Competitors
+
+After the user provides their niche and location (from Section 1), automatically search for direct competitors running Meta ads in their space.
+
+**Actor:** `apify/facebook-search-scraper` (official Apify -- 6.3k users, 98.5% success)
+
+```json
+{
+  "queries": ["{niche} {location}", "{niche} near {location}"],
+  "maxResults": 20
+}
+```
+
+From the results, filter for:
+- Pages with `ad_status` = "This Page is currently running ads"
+- Pages in a relevant category (Gym, Coach, Consultant, etc. matching their niche)
+- Pages with 500+ followers (filters out dead pages)
+
+Present the discovered competitors:
+```
+We found {N} businesses in your niche running Meta ads:
+
+1. {Name} ({followers} followers) -- {category} -- Currently running ads
+2. {Name} ({followers} followers) -- {category} -- Currently running ads
+...
+
+Which ones do you want to track? (all / pick numbers / none)
+```
+
+For each selected competitor, resolve their `pageAdLibrary.id` using `apify/facebook-page-contact-information` and add to the Competitors table as "Direct" niche tier.
+
+This means a user can say "I run a boxing gym in Belfast" and walk away with 5-10 real competitors loaded and ready to scrape -- without knowing a single Facebook URL.
 
 **Section 4: Your Ad Account**
 1. Do you have a Meta ad account? What is the ad account ID? (format: act_XXXXXXXXX)

@@ -21,14 +21,15 @@ Scrape competitors. Analyze winners. Generate ads. Launch campaigns. Track perfo
 2. [Quick Start](#quick-start)
 3. [Skills](#skills)
 4. [The Swipe File](#the-swipe-file)
-5. [The Hook Farm](#the-hook-farm)
-6. [The Loop](#the-loop)
-7. [n8n Automation](#n8n-automation-optional)
-8. [MCP Servers](#mcp-servers)
-9. [Compliance](#meta-ads-api-compliance)
-10. [Reference Files](#reference-files)
-11. [Requirements](#requirements)
-12. [License](#license)
+5. [Competitor Auto-Discovery](#competitor-auto-discovery)
+6. [The Hook Farm](#the-hook-farm)
+7. [The Loop](#the-loop)
+8. [n8n Automation](#n8n-automation-optional)
+9. [MCP Servers](#mcp-servers)
+10. [Compliance](#meta-ads-api-compliance)
+11. [Reference Files](#reference-files)
+12. [Requirements](#requirements)
+13. [License](#license)
 
 ---
 
@@ -113,13 +114,19 @@ Angle, format, hook, CTA type are **filters** for browsing -- not scoring factor
 
 Long-Runner hooks automatically feed into the **Proven Hooks** database -- a growing collection of battle-tested hooks you can pull from when writing ads.
 
+## Competitor Auto-Discovery
+
+Don't know your competitors' Facebook pages? No problem. Tell `/ads-setup` your niche and location, and it searches for businesses in your space that are actively running Meta ads. You pick which ones to track.
+
+Say "I run a boxing gym in Belfast" and walk away with 5-10 real competitors loaded and ready to scrape. No manual searching.
+
 ## The Hook Farm
 
-The repo ships with **Alex Hormozi** as a default aspirational competitor. He tests 150-200 ads at any time with massive budgets. The hooks that survive 60+ days are battle-tested winners.
+The repo ships with **Alex Hormozi** as a default framework source. He tests 150-200 ads at any time with massive budgets. His Long-Runner hooks (60d+) get pulled into your Proven Hooks database as **structural inspiration** -- not to copy, but to study what frameworks and patterns work at scale.
 
-First scrape pulls ~2000 of his ads. The analyzer finds the ~110 Long-Runners and extracts their hooks into your Proven Hooks database. When you run `/ad-scripter`, it reads those hooks and uses them as framework inspiration for your ads.
+Your direct competitors are where the real intelligence comes from. They're in your niche, targeting your audience, testing hooks that apply directly to your market. Hormozi gives you the frameworks. Your competitors give you the market-specific data.
 
-The longer you run it, the better your hook library gets. Add more aspirational competitors and you're harvesting millions of dollars of A/B testing for free.
+The longer you run it, the better both databases get.
 
 ---
 
