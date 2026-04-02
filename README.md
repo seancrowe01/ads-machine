@@ -61,7 +61,7 @@ LOOP       Winners feed back into the swipe file. The system learns.
 ## Quick Start
 
 ```bash
-git clone https://github.com/YOUR_USERNAME/ads-machine.git
+git clone https://github.com/seancrowe01/ads-machine.git
 cd ads-machine
 cp .env.example .env
 # Fill in your API keys in .env
