@@ -30,6 +30,12 @@ generate-blueprint.py
 *.excalidraw
 ads-machine-blueprint.png
 
+# n8n test files (contains env-specific config)
+n8n/test-poller.js
+
+# Ad creative outputs
+creatives/
+
 # Claude Code local config
 .claude/settings.local.json
 

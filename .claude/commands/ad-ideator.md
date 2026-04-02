@@ -39,19 +39,18 @@ If not, show the top 10 winners from the Swipe File:
 Use Airtable MCP: list_records
   base_id: {from CLAUDE.md}
   table_id: {Swipe File table ID}
-  filter: AND({Is Analyzed}=TRUE(), {Score}>=50, {Status}='Active')
-  sort: Score desc
+  filter: AND({Is Analyzed}=TRUE(), OR({Longevity Tier}='Long-Runner', {Longevity Tier}='Performer'))
+  sort: [{field: "Days Active", direction: "desc"}]
   maxRecords: 10
-  fields: Ad Archive ID, Competitor, Angle Category, Ad Format Type, Hook Video, Hook Copy, Body Text, Score, Days Active
+  fields: Ad Archive ID, Competitor, Angle Category, Ad Format Type, Hook Video, Hook Copy, Body Text, Days Active, Longevity Tier
 ```
 
 Present them:
 ```
 Top 10 Winners -- Pick one to multiply:
 
-1. [{score}] {competitor} -- {angle}
+1. [{days}d {tier}] {competitor} -- {angle}
    Hook: "{hook}"
-   Running {days} days
 
 2. ...
 ```
@@ -168,6 +167,58 @@ Created {N} Pipeline records:
 
 Next step: Run /ad-scripter to write full scripts and copy for these ideas.
 ```
+
+---
+
+## Batch Mode -- Assembly Line Production
+
+When the user says "batch", "volume", "scale", or "assembly line", switch to this mode instead of 5 variations.
+
+The principle: hooks, body scripts, and CTAs are independent components. Write them separately, then mix-and-match to produce volume.
+
+### Step 1: Write 10 Hooks
+
+Pull inspiration from:
+- Proven Hooks table (Long-Runners from Airtable)
+- `reference/hook-swipe-file.md`
+- The source winner's hook pattern
+
+Write 10 hooks for the user's offer. Mix the types:
+- 7 proven (remix what's already working -- 70%)
+- 2 adjacent (adapt from other niches -- 20%)
+- 1 experimental (wild card -- 10%)
+
+### Step 2: Write 3 Body Scripts
+
+Each body script is a different framework applied to the same offer:
+- Body A: PAS (problem, agitate, solution)
+- Body B: Story (personal narrative or client story)
+- Body C: Education (teach something, position as expert)
+
+Each body is 15-20 seconds of spoken content. No hook, no CTA -- just the middle.
+
+### Step 3: Write 2 CTAs
+
+- CTA 1: Direct ("Book your free trial today")
+- CTA 2: Soft ("DM us 'START' and we'll send you the details")
+
+### Step 4: Show the Math
+
+```
+10 hooks x 3 bodies x 2 CTAs = 60 unique ad combinations
+
+You don't need to film 60 ads.
+Film 3 body scripts and 2 CTA endings = 5 clips.
+Then pair each clip with 10 different hooks (text overlay or re-record the first 3 seconds).
+
+That's 60 ads from 5 filming sessions.
+```
+
+### Step 5: Save to Pipeline
+
+Create 1 Pipeline record per body script (3 total) with all 10 hooks listed in the Hook field. The user picks which combinations to film.
+
+Present the full matrix and let the user choose how many to produce.
 
 ---
 

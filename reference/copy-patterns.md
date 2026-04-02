@@ -81,6 +81,20 @@ Descriptions appear as smaller text below the headline. Often truncated on mobil
 
 ---
 
+## CTA -- Show Don't Tell
+
+The strongest CTAs in video ads don't just say "click the link." They visually walk the viewer through what happens next:
+
+1. **Show the landing page** -- quick screen recording of the page they'll see
+2. **Show the action** -- cursor clicking the button, filling in the form
+3. **Show what they get** -- the PDF, the calendar booking, the confirmation screen
+
+This removes uncertainty. People don't click when they don't know what's on the other side. Showing them makes it feel safe and easy.
+
+For static ads, use a screenshot of the landing page or form as a visual element. "Here's what you'll see when you click" converts better than "Click here to learn more."
+
+---
+
 ## CTA Button Mapping
 
 | Goal | CTA Type | When to Use |

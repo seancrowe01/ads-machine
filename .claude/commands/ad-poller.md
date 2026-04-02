@@ -62,15 +62,24 @@ If no competitors found, tell the user to populate the Competitors table first o
 
 If any competitor has a Facebook Page URL but no numeric Page ID, resolve it automatically:
 
-**Actor:** `apify/facebook-pages-scraper` (official Apify -- 38k users, 99.5% success)
+**Actor:** `apify/facebook-page-contact-information` (official Apify -- 4.8k users, 99.6% success, ~$0.013/page)
 
 ```json
 {
-  "startUrls": [{"url": "https://www.facebook.com/{page_slug}/"}]
+  "pages": ["https://www.facebook.com/{page_slug}/"]
 }
 ```
 
-The response includes `pageAdLibrary.id` -- that is the Ad Library Page ID. Update the Competitors table with the resolved ID.
+**CRITICAL:** The response contains TWO different IDs. You MUST use the right one:
+- `facebookId` / `pageId` = the Facebook profile ID (DO NOT USE for Ad Library)
+- `pageAdLibrary.id` = the Ad Library Page ID (USE THIS ONE)
+
+Also extract from the response:
+- `title` = confirmed page name
+- `ad_status` = "This Page is currently running ads." or "This Page isn't currently running ads."
+- `website`, `category`, `followers` = useful metadata
+
+Update the Competitors table with the resolved `pageAdLibrary.id`.
 
 If the resolver fails, tell the user to find it manually: facebook.com/ads/library > search the page name > copy `view_all_page_id=` from the URL.
 
@@ -226,17 +235,24 @@ After all inserts, recalculate longevity tiers for ALL active ads in the Swipe F
 from datetime import date
 
 today = date.today()
-for ad in all_active_ads:
-    days = (today - ad.start_date).days
-    if days >= 90:
-        tier = "Long-Runner (90d+)"
+for ad in all_ads:
+    end = ad.end_date or today  # Active ads use today
+    days = (end - ad.start_date).days
+    if days >= 60:
+        tier = "Long-Runner"
     elif days >= 30:
-        tier = "Performer (30-90d)"
+        tier = "Performer"
+    elif days >= 14:
+        tier = "Solid"
+    elif days >= 7:
+        tier = "Testing"
     else:
-        tier = "Test (<30d)"
+        tier = "Killed"
     ad.longevity_tier = tier
     ad.days_active = days
 ```
+
+**Days Active IS the grade.** No composite scoring. The market already graded every ad by how long the advertiser kept spending on it. Everything else (format, angle, hook, CTA) is a filter for browsing, not a scoring factor.
 
 Update records in batches of 10 where the tier has changed.
 
@@ -278,9 +294,11 @@ Total ads found: {total}
   Marked killed: {killed}
 
 Longevity breakdown:
-  Long-Runners (90d+): {count} -- VALIDATED WINNERS
-  Performers (30-90d): {count}
-  Tests (<30d): {count}
+  Long-Runners (60d+): {count} -- PROVEN WINNERS
+  Performers (30-59d): {count}
+  Solid (14-29d): {count}
+  Testing (7-13d): {count}
+  Killed (<7d): {count}
 
 By competitor:
   {Name}: {count} ads ({video} video, {image} image, {dco} DCO)
@@ -300,7 +318,7 @@ Next step: Run /ad-analyzer to transcribe and classify new ads.
 4. **DCO ads have no media URLs.** Display format = DCO means Meta assembles the creative dynamically. Still insert the record -- the copy is useful.
 5. **Dedup on Ad Archive ID.** Same ad can appear in multiple scrapes.
 6. **Airtable batch limit is 10 records per request.** Always batch creates and updates.
-7. **Facebook Page ID vs Profile ID:** The Competitors table stores the Ad Library page ID, NOT the profile ID. Use `apify/facebook-pages-scraper` to resolve page URLs to Ad Library IDs (the `pageAdLibrary.id` field).
+7. **Facebook Page ID vs Profile ID:** The Competitors table stores the Ad Library page ID, NOT the profile ID. Use `apify/facebook-page-contact-information` to resolve page URLs to Ad Library IDs (the `pageAdLibrary.id` field -- NOT `facebookId` or `pageId`).
 8. **Run competitors in sequence.** Parallel scraping hits Apify rate limits.
 9. **Never delete records.** Mark killed ads as Killed with an End Date. History matters.
 10. **Ad Active Status vs Status:** `Ad Active Status` is what Meta reports (Active/Inactive). `Status` is your swipe file classification (Active, Killed, Winner, Starred). An ad can be `Ad Active Status = Inactive` but `Status = Winner` -- that means it ran successfully and was turned off after scaling.

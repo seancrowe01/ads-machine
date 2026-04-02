@@ -4,6 +4,52 @@ Universal frameworks for structuring ad scripts and copy. Each framework include
 
 ---
 
+## Hooks by Audience Awareness Level
+
+Not every hook works on every audience. Match your hook to where the prospect is in their awareness:
+
+| Level | They know... | Hook approach | Example |
+|---|---|---|---|
+| **Unaware** | Nothing about the problem | Lead with curiosity or a pattern interrupt | "Nobody talks about this but..." |
+| **Problem-aware** | They have a problem, not the solution | Lead with the pain they feel | "Tired of [specific frustration]?" |
+| **Solution-aware** | Solutions exist, not yours specifically | Lead with your mechanism or approach | "There is a faster way to [result]" |
+| **Product-aware** | Your offer, but haven't bought | Lead with proof and differentiation | "[Name] got [result] in [time] using this" |
+| **Most-aware** | Your offer well, just need a push | Lead with the offer or urgency | "Last 3 spots this month" |
+
+Cold traffic = unaware/problem-aware hooks. Retargeting = product-aware/most-aware hooks. Most ad accounts only write problem-aware hooks and wonder why cold traffic doesn't convert.
+
+---
+
+## Hook Types
+
+Hooks are not all the same format. Vary the type to avoid pattern fatigue:
+
+| Type | What it does | Example |
+|---|---|---|
+| **Question** | Forces the brain to answer | "What would you do with an extra 10 hours a week?" |
+| **Statement** | Bold claim that demands attention | "The smartest thing you can do today costs nothing" |
+| **Command** | Tells them what to do | "Stop scrolling if you run a business" |
+| **Conditional** | If/then that qualifies them | "If you have tried everything and nothing worked, read this" |
+| **List** | Promises structured value | "3 reasons your ads stopped working this month" |
+| **Story** | Opens a narrative loop | "Last Tuesday a client called me in a panic" |
+| **Exclamation** | Raw emotion or surprise | "I cannot believe this actually worked" |
+
+---
+
+## The 70-20-10 Rule for Hook Creation
+
+How to allocate your creative effort when writing hooks:
+
+**70% -- Proven winners.** Reuse and remix hooks that already worked. Pull from your Proven Hooks table in Airtable. Same hook, different angle or format. If it worked once, it will work again with a fresh audience.
+
+**20% -- Adjacent winners.** Take hooks working in other niches and adapt them. A hook that works for a SaaS company can work for a gym if you swap the specifics. Study Long-Runners from aspirational competitors in different industries.
+
+**10% -- Experiments.** Try something nobody in your niche is doing. New visual format, controversial take, completely different tone. Most will fail. The ones that hit become your next 70%.
+
+This means for every 10 hooks you write, 7 are variations of proven winners, 2 are adapted from other niches, and 1 is a wild card.
+
+---
+
 ## PAS -- Problem, Agitate, Solution
 
 Best for: cold audiences, pain-aware prospects, lead gen

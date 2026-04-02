@@ -29,9 +29,19 @@ Ask these questions one section at a time. 3-4 questions per prompt. Wait for an
 **Section 3: Your Competitors**
 1. List 3-5 direct competitors (businesses selling similar things to similar people)
 2. List 1-3 aspirational competitors (bigger brands you admire or want to learn from)
+   - Tell the user: "We pre-load Alex Hormozi as a default hook farm. He tests 200 ads at any time -- the ones that survive 60+ days are proven winners and their hooks land in your database automatically. You can remove him or add others."
+   - **Cost note:** First scrape of a big account like Hormozi pulls ~2000 ads ($0.10 Apify). After that, daily runs only catch new ads so costs drop to near zero. Apify free tier ($5/month) covers ~5 competitors scraped daily.
 3. For each competitor: do you have their Facebook Page URL or Page ID?
    - Accept ANY of these formats: full URL (facebook.com/pagename), page slug (pagename), numeric Page ID, or Ad Library URL
    - You will auto-resolve Page IDs in Phase 2 -- the user does NOT need to find numeric IDs manually
+
+**Default Aspirational Competitors (pre-loaded):**
+
+| Name | Facebook Page ID | Niche Tier |
+|---|---|---|
+| Alex Hormozi | 116482854782233 | Aspirational |
+
+These get added to the Competitors table automatically during setup. The user can remove them or add more.
 
 **Section 4: Your Ad Account**
 1. Do you have a Meta ad account? What is the ad account ID? (format: act_XXXXXXXXX)
@@ -59,24 +69,27 @@ Before creating tables, resolve all competitor Page IDs automatically.
 
 For each competitor that has a Facebook Page URL (not a numeric ID):
 
-**Actor:** `apify/facebook-pages-scraper` (official Apify -- 38k users, 99.5% success)
+**Actor:** `apify/facebook-page-contact-information` (official Apify -- 4.8k users, 99.6% success, ~$0.013/page)
 
 ```json
 {
-  "startUrls": [
-    {"url": "https://www.facebook.com/{page_slug_1}/"},
-    {"url": "https://www.facebook.com/{page_slug_2}/"},
-    {"url": "https://www.facebook.com/{page_slug_3}/"}
+  "pages": [
+    "https://www.facebook.com/{page_slug_1}/",
+    "https://www.facebook.com/{page_slug_2}/",
+    "https://www.facebook.com/{page_slug_3}/"
   ]
 }
 ```
 
 Run all pages in a single call (batch). From the response, extract:
-- `pageAdLibrary.id` -- this is the Ad Library Page ID needed for scraping
+- `pageAdLibrary.id` -- this is the Ad Library Page ID needed for scraping (NOT `facebookId` or `pageId`)
 - `title` -- confirmed page name
 - `website` -- their website URL
 - `category` -- their business category
 - `ad_status` -- whether they are currently running ads
+- `followers` -- page follower count
+
+**CRITICAL:** `facebookId`/`pageId` and `pageAdLibrary.id` are DIFFERENT numbers. Always use `pageAdLibrary.id` for Ad Library URLs.
 
 If a user provided an Ad Library URL, extract the Page ID from the `view_all_page_id=` parameter directly -- no scraping needed.
 
@@ -118,7 +131,7 @@ Create table with these fields:
 - `Start Date` (date, dateFormat name `iso`)
 - `End Date` (date, dateFormat name `iso`)
 - `Days Active` (number, precision 0)
-- `Longevity Tier` (singleSelect: options `Test (<30d)`, `Performer (30-90d)`, `Long-Runner (90d+)`)
+- `Longevity Tier` (singleSelect: options `Killed`, `Testing`, `Solid`, `Performer`, `Long-Runner`)
 - `Display Format` (singleSelect: options `Video`, `Image`, `Carousel`, `DCO`)
 - `Body Text` (multilineText)
 - `Title` (singleLineText)
@@ -135,13 +148,28 @@ Create table with these fields:
 - `Angle Category` (singleSelect: options `Social Proof`, `Pain-to-Transformation`, `Tips/Education`, `Growth Problem`, `Profit Problem`, `Authority`, `Scarcity/Urgency`, `Behind-the-Scenes`, `Controversy`, `Comparison`)
 - `Ad Format Type` (singleSelect: options `UGC Testimonial`, `UGC Talking Head`, `Interview/Case Study`, `Motion Graphics`, `Static Image`, `Screenshot/Demo`, `Slideshow`, `Other`)
 - `Visual Style` (multilineText)
-- `Score` (number, precision 0) -- 0-100 composite
+- `Impressions Rank` (number, precision 0) -- position in Ad Library sort (1 = most impressions)
 - `Scrape Date` (date, dateFormat name `iso`)
 - `Scrape Batch ID` (singleLineText)
 - `Is Analyzed` (checkbox)
 - `Winner Source` (singleSelect: options `Competitor Intelligence`, `Own Performance`)
 
-### Table 3: Ad Pipeline
+### Table 3: Proven Hooks
+
+Auto-populated by `/ad-analyzer`. Every time a Long-Runner (60d+) is found, its hook lands here. This table grows silently in the background and becomes the user's personal hook database.
+
+Create table with these fields:
+- `Hook Text` (multilineText)
+- `Source Competitor` (singleLineText)
+- `Source Ad` (url) -- Ad Library link
+- `Angle Category` (singleSelect: same options as Ad Swipe File)
+- `Format` (singleSelect: options `Video`, `Image`, `Carousel`, `DCO`)
+- `Days Active` (number, precision 0)
+- `Longevity Tier` (singleSelect: options `Long-Runner`, `Performer`)
+- `Niche Tier` (singleSelect: options `Direct`, `Adjacent`, `Aspirational`)
+- `Date Added` (date, dateFormat name `iso`)
+
+### Table 4: Ad Pipeline
 
 Create table with these fields:
 - `Name` (singleLineText)
@@ -174,7 +202,7 @@ Create table with these fields:
 - `Launch Date` (date, dateFormat name `iso`)
 - `Kill Date` (date, dateFormat name `iso`)
 
-**IMPORTANT:** After creating each table, record the table ID. You need all 3 table IDs for the CLAUDE.md.
+**IMPORTANT:** After creating each table, record the table ID. You need all 4 table IDs for the CLAUDE.md.
 
 ---
 

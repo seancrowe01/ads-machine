@@ -1,8 +1,15 @@
 # Ad Hook Swipe File
 
-Starter collection of proven ad hooks organized by angle. This file grows automatically as `/ad-poller` and `/ad-monitor` feed new winners into the system.
+Starter collection of proven ad hooks organized by angle. **This file grows automatically** -- when `/ad-analyzer` processes Long-Runner ads (60d+), it appends their hooks here with attribution.
 
 The primary swipe file lives in your Airtable Ad Swipe File table. This markdown file is a quick reference for scripting sessions.
+
+**How it grows:** Add aspirational competitors (Hormozi, Brunson, etc.) to your Competitors table as "Aspirational" tier. They test 100-200 ads at a time. The hooks that survive 60+ days are battle-tested winners. The poller scrapes them, the analyzer extracts hooks from Long-Runners, and they land here automatically. Millions of dollars of A/B testing, harvested for free.
+
+**Format for auto-added hooks:**
+```
+- "{hook text}" -- [Competitor Name, 90d, Video]
+```
 
 ---
 

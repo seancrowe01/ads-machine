@@ -1,0 +1,243 @@
+{
+  "name": "Ads Machine — Daily Ad Poller",
+  "nodes": [
+    {
+      "id": "trigger-1",
+      "name": "Daily 6am",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [0, 300],
+      "parameters": {
+        "rule": {
+          "interval": [{"field": "cronExpression", "expression": "0 6 * * *"}]
+        }
+      }
+    },
+    {
+      "id": "node-1",
+      "name": "Read Competitors",
+      "type": "n8n-nodes-base.airtable",
+      "typeVersion": 2.1,
+      "position": [240, 200],
+      "parameters": {
+        "operation": "list",
+        "base": {"__rl": true, "value": "YOUR_AIRTABLE_BASE_ID", "mode": "id"},
+        "table": {"__rl": true, "value": "YOUR_COMPETITORS_TABLE_ID", "mode": "id"},
+        "filterByFormula": "{Status}='Active'",
+        "options": {"fields": ["Name", "Facebook Page ID", "Niche Tier"]}
+      },
+      "credentials": {
+        "airtableTokenApi": {"id": "", "name": "Airtable Token"}
+      }
+    },
+    {
+      "id": "node-2",
+      "name": "Read Existing Ads",
+      "type": "n8n-nodes-base.airtable",
+      "typeVersion": 2.1,
+      "position": [240, 440],
+      "parameters": {
+        "operation": "list",
+        "base": {"__rl": true, "value": "YOUR_AIRTABLE_BASE_ID", "mode": "id"},
+        "table": {"__rl": true, "value": "YOUR_SWIPE_FILE_TABLE_ID", "mode": "id"},
+        "options": {"fields": ["Ad Archive ID"]}
+      },
+      "credentials": {
+        "airtableTokenApi": {"id": "", "name": "Airtable Token"}
+      }
+    },
+    {
+      "id": "node-merge",
+      "name": "Merge Data",
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3,
+      "position": [500, 300],
+      "parameters": {
+        "mode": "append",
+        "options": {}
+      }
+    },
+    {
+      "id": "node-3",
+      "name": "Build Competitor Queue",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [740, 300],
+      "parameters": {
+        "jsCode": "// Tested and verified 3x on 2026-04-01 against Alex Hormozi (2000+ ads)\nconst COUNTRY = 'ALL'; // Change to 'GB', 'US' etc for geo-specific\nconst MAX_ADS = 50;\n\nconst allItems = $input.all();\nconst existingIds = new Set();\nconst competitors = [];\n\nfor (const item of allItems) {\n  const f = item.json.fields || item.json;\n  // Airtable existing ads have Ad Archive ID\n  if (f['Ad Archive ID']) {\n    existingIds.add(String(f['Ad Archive ID']));\n    continue;\n  }\n  // Competitors have Name + Facebook Page ID\n  if (f['Name'] && f['Facebook Page ID']) {\n    competitors.push({\n      name: f['Name'],\n      pageId: f['Facebook Page ID'],\n      tier: f['Niche Tier'] || 'Direct'\n    });\n  }\n}\n\nif (competitors.length === 0) return [];\n\n// Return first competitor with existing IDs attached\n// n8n will loop through each via splitInBatches\nreturn competitors.map(comp => ({\n  json: {\n    ...comp,\n    url: `https://www.facebook.com/ads/library/?active_status=all&ad_type=all&country=${COUNTRY}&is_targeted_country=false&media_type=all&search_type=page&sort_data[direction]=desc&sort_data[mode]=total_impressions&view_all_page_id=${comp.pageId}`,\n    maxAds: MAX_ADS,\n    existingIds: [...existingIds]\n  }\n}));"
+      }
+    },
+    {
+      "id": "node-loop",
+      "name": "Loop Competitors",
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3,
+      "position": [980, 300],
+      "parameters": {
+        "batchSize": 1,
+        "options": {}
+      }
+    },
+    {
+      "id": "node-4",
+      "name": "Scrape Ad Library",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1220, 200],
+      "parameters": {
+        "method": "POST",
+        "url": "=https://api.apify.com/v2/acts/curious_coder~facebook-ads-library-scraper/runs?token={{ $env.APIFY_TOKEN }}&waitForFinish=300",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [{"name": "Content-Type", "value": "application/json"}]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ urls: [{ url: $json.url }], maxAds: $json.maxAds }) }}",
+        "options": {"timeout": 300000}
+      }
+    },
+    {
+      "id": "node-5",
+      "name": "Fetch Results",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1460, 200],
+      "parameters": {
+        "method": "GET",
+        "url": "=https://api.apify.com/v2/datasets/{{ $json.data.defaultDatasetId }}/items?token={{ $env.APIFY_TOKEN }}",
+        "options": {"timeout": 60000}
+      }
+    },
+    {
+      "id": "node-6",
+      "name": "Process and Dedup",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1700, 200],
+      "parameters": {
+        "jsCode": "// Tested 3x on 2026-04-01 — all fields verified against Airtable\nconst ads = $input.all();\nconst competitor = $('Loop Competitors').first().json;\nconst existingIds = new Set(competitor.existingIds || []);\nconst today = new Date().toISOString().split('T')[0];\nconst newAds = [];\nlet position = 0;\n\nfor (const item of ads) {\n  const ad = item.json;\n  position++;\n  if (ad.error) continue;\n\n  const archiveId = String(ad.ad_archive_id || ad.adArchiveId || '');\n  if (!archiveId || existingIds.has(archiveId)) continue;\n\n  // Parse dates\n  let startDate = null;\n  const startRaw = ad.start_date_formatted || ad.startDateFormatted || ad.start_date;\n  if (startRaw) {\n    if (typeof startRaw === 'string' && startRaw.includes('-')) startDate = startRaw.split(' ')[0];\n    else if (typeof startRaw === 'number') startDate = new Date(startRaw * 1000).toISOString().split('T')[0];\n  }\n\n  let endDate = null;\n  const endRaw = ad.end_date_formatted || ad.endDateFormatted || ad.end_date;\n  if (endRaw) {\n    if (typeof endRaw === 'string' && endRaw.includes('-')) endDate = endRaw.split(' ')[0];\n    else if (typeof endRaw === 'number') endDate = new Date(endRaw * 1000).toISOString().split('T')[0];\n  }\n\n  // Days Active + Longevity Tier\n  let daysActive = 0;\n  if (startDate) {\n    const start = new Date(startDate);\n    const end = endDate ? new Date(endDate) : new Date();\n    daysActive = Math.floor((end - start) / (1000 * 60 * 60 * 24));\n  }\n  let tier = 'Killed';\n  if (daysActive >= 60) tier = 'Long-Runner';\n  else if (daysActive >= 30) tier = 'Performer';\n  else if (daysActive >= 14) tier = 'Solid';\n  else if (daysActive >= 7) tier = 'Testing';\n\n  const snap = ad.snapshot || {};\n  const body = snap.body || {};\n  const bodyText = typeof body === 'object' ? (body.text || '') : String(body);\n  const displayFormat = (snap.display_format || snap.displayFormat || '').toUpperCase();\n  const formatMap = { VIDEO: 'Video', IMAGE: 'Image', CAROUSEL: 'Carousel', DCO: 'DCO' };\n  const hookCopy = bodyText.split(/\\n/)[0] || '';\n\n  const videos = snap.videos || [];\n  const videoUrl = videos.length > 0 ? (videos[0].video_hd_url || videos[0].videoHdUrl || videos[0].video_sd_url || videos[0].videoSdUrl || '') : '';\n  const images = snap.images || [];\n  const imageUrl = images.length > 0 ? (images[0].original_image_url || images[0].originalImageUrl || '') : '';\n\n  const record = {\n    'Ad Archive ID': archiveId,\n    'Page Name': snap.page_name || snap.pageName || ad.page_name || '',\n    'Page ID': String(ad.page_id || snap.page_id || ''),\n    'Ad Library URL': `https://www.facebook.com/ads/library/?id=${archiveId}`,\n    'Start Date': startDate,\n    'End Date': endDate,\n    'Days Active': daysActive,\n    'Longevity Tier': tier,\n    'Display Format': formatMap[displayFormat] || null,\n    'Body Text': bodyText.substring(0, 5000),\n    'Title': snap.title || '',\n    'CTA Type': snap.cta_type || snap.ctaType || '',\n    'CTA Text': snap.cta_text || snap.ctaText || '',\n    'Link URL': snap.link_url || snap.linkUrl || '',\n    'Video URL': videoUrl,\n    'Image URL': imageUrl,\n    'Hook Copy': hookCopy.substring(0, 500),\n    'Word Count': bodyText.split(/\\s+/).filter(w => w).length,\n    'Impressions Rank': position,\n    'Scrape Date': today,\n    'Scrape Batch ID': competitor.name + '-' + today\n  };\n\n  // Checkbox: only send true\n  if (ad.is_active === true) record['Is Active'] = true;\n\n  // Remove empty fields\n  const cleaned = {};\n  for (const [k, v] of Object.entries(record)) {\n    if (v !== '' && v !== null && v !== undefined && v !== 0) cleaned[k] = v;\n  }\n  // Always include Days Active even if 0\n  cleaned['Days Active'] = daysActive;\n\n  newAds.push(cleaned);\n  existingIds.add(archiveId);\n}\n\nreturn newAds.map(ad => ({ json: { fields: ad } }));"
+      }
+    },
+    {
+      "id": "node-7",
+      "name": "Has New Ads",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [1940, 200],
+      "parameters": {
+        "conditions": {
+          "options": {"caseSensitive": true, "leftValue": "", "typeValidation": "loose"},
+          "conditions": [
+            {
+              "id": "cond-1",
+              "leftValue": "={{ $input.all().length }}",
+              "rightValue": 0,
+              "operator": {"type": "number", "operation": "gt"}
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "node-8",
+      "name": "Batch 10",
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3,
+      "position": [2180, 100],
+      "parameters": {
+        "batchSize": 10,
+        "options": {}
+      }
+    },
+    {
+      "id": "node-9",
+      "name": "Write to Airtable",
+      "type": "n8n-nodes-base.airtable",
+      "typeVersion": 2.1,
+      "position": [2420, 100],
+      "parameters": {
+        "operation": "create",
+        "base": {"__rl": true, "value": "YOUR_AIRTABLE_BASE_ID", "mode": "id"},
+        "table": {"__rl": true, "value": "YOUR_SWIPE_FILE_TABLE_ID", "mode": "id"},
+        "columns": {
+          "mappingMode": "autoMapInputData"
+        },
+        "options": {}
+      },
+      "credentials": {
+        "airtableTokenApi": {"id": "", "name": "Airtable Token"}
+      }
+    },
+    {
+      "id": "node-10",
+      "name": "Back to Loop",
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [2180, 340]
+    }
+  ],
+  "connections": {
+    "Daily 6am": {
+      "main": [[
+        {"node": "Read Competitors", "type": "main", "index": 0},
+        {"node": "Read Existing Ads", "type": "main", "index": 0}
+      ]]
+    },
+    "Read Competitors": {
+      "main": [[{"node": "Merge Data", "type": "main", "index": 0}]]
+    },
+    "Read Existing Ads": {
+      "main": [[{"node": "Merge Data", "type": "main", "index": 1}]]
+    },
+    "Merge Data": {
+      "main": [[{"node": "Build Competitor Queue", "type": "main", "index": 0}]]
+    },
+    "Build Competitor Queue": {
+      "main": [[{"node": "Loop Competitors", "type": "main", "index": 0}]]
+    },
+    "Loop Competitors": {
+      "main": [
+        [{"node": "Scrape Ad Library", "type": "main", "index": 0}],
+        []
+      ]
+    },
+    "Scrape Ad Library": {
+      "main": [[{"node": "Fetch Results", "type": "main", "index": 0}]]
+    },
+    "Fetch Results": {
+      "main": [[{"node": "Process and Dedup", "type": "main", "index": 0}]]
+    },
+    "Process and Dedup": {
+      "main": [[{"node": "Has New Ads", "type": "main", "index": 0}]]
+    },
+    "Has New Ads": {
+      "main": [
+        [{"node": "Batch 10", "type": "main", "index": 0}],
+        [{"node": "Back to Loop", "type": "main", "index": 0}]
+      ]
+    },
+    "Batch 10": {
+      "main": [
+        [{"node": "Write to Airtable", "type": "main", "index": 0}],
+        [{"node": "Back to Loop", "type": "main", "index": 0}]
+      ]
+    },
+    "Write to Airtable": {
+      "main": [[{"node": "Batch 10", "type": "main", "index": 0}]]
+    },
+    "Back to Loop": {
+      "main": [[{"node": "Loop Competitors", "type": "main", "index": 0}]]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "staticData": null,
+  "tags": [],
+  "triggerCount": 1,
+  "updatedAt": "2026-04-01T00:00:00.000Z",
+  "versionId": "2"
+}

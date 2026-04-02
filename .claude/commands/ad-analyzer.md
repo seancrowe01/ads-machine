@@ -171,59 +171,33 @@ If Gemini is not configured, skip this step silently. The rest of the analysis s
 
 ---
 
-## Step 6: Score Each Ad
+## Step 6: Calculate Longevity Tier
 
-Calculate a composite score (0-100) based on available data:
+Days Active IS the grade. No composite scoring. The market already graded every ad.
 
 ```python
-score = 0
+from datetime import date
 
-# Longevity weight (40 points max)
-days = ad.days_active or 0
-if days >= 90:
-    score += 40  # Long-runner = proven winner
-elif days >= 60:
-    score += 30
+today = date.today()
+end = ad.end_date or today  # Active ads use today
+days = (end - ad.start_date).days
+
+if days >= 60:
+    tier = "Long-Runner"
 elif days >= 30:
-    score += 20  # Performer
+    tier = "Performer"
 elif days >= 14:
-    score += 10
+    tier = "Solid"
+elif days >= 7:
+    tier = "Testing"
 else:
-    score += 0   # Too early to judge
+    tier = "Killed"
 
-# Creative completeness (20 points max)
-if ad.transcript:
-    score += 5
-if ad.hook_video:
-    score += 5
-if ad.body_text and len(ad.body_text) > 20:
-    score += 5
-if ad.visual_style:
-    score += 5
-
-# Hook strength (20 points max)
-hook = ad.hook_video or ad.hook_copy or ""
-if len(hook) > 0:
-    score += 5  # Has a hook at all
-if any(word in hook.lower() for word in ["you", "your", "how", "why", "what if"]):
-    score += 5  # Addresses the reader
-if any(char in hook for char in "0123456789$%"):
-    score += 5  # Contains specifics (numbers, money)
-if len(hook.split()) <= 15:
-    score += 5  # Concise hook
-
-# Copy quality (20 points max)
-body = ad.body_text or ""
-word_count = len(body.split())
-if 20 <= word_count <= 100:
-    score += 10  # Good length range
-elif word_count > 0:
-    score += 5   # Has copy but suboptimal length
-if ad.cta_type:
-    score += 5   # Has a CTA
-if ad.link_url:
-    score += 5   # Has a destination
+ad.days_active = days
+ad.longevity_tier = tier
 ```
+
+Format, angle, hook, CTA type are FILTERS for browsing -- not scoring factors. A static image running 90 days outranks a video killed in 3. "Show me all Long-Runners with social proof angle" is how you find patterns.
 
 ---
 
@@ -240,12 +214,50 @@ Fields to update:
 - `Angle Category`
 - `Ad Format Type`
 - `Visual Style` (if Gemini available)
-- `Score`
+- `Days Active`
+- `Longevity Tier`
+- `Impressions Rank` (position in scrape results, 1 = most impressions)
 - `Is Analyzed` = true
 
 ---
 
-## Step 8: Print Summary
+## Step 8: Feed Proven Hooks Database
+
+After updating all ads, extract hooks from Long-Runners and push to the Proven Hooks table.
+
+```
+Read from CLAUDE.md:
+  Proven Hooks Table: YOUR_PROVEN_HOOKS_TABLE_ID
+```
+
+For each ad where:
+- `Longevity Tier` = `Long-Runner` OR `Performer` (30d+)
+- Hook exists (Hook Video or Hook Copy is not empty)
+- Hook is not already in the Proven Hooks table (dedup on Hook Text)
+
+Create a record:
+```
+Use Airtable MCP: create_record
+  fields: {
+    Hook Text: {hook_video or hook_copy},
+    Source Competitor: {competitor name},
+    Source Ad: {ad library url},
+    Angle Category: {angle},
+    Format: {display format},
+    Days Active: {days},
+    Longevity Tier: {tier},
+    Niche Tier: {competitor's niche tier from Competitors table},
+    Date Added: {today}
+  }
+```
+
+This runs silently. No user interaction. The Proven Hooks table grows automatically every time the analyzer processes new Long-Runners.
+
+After a month of daily polling with 5+ competitors, the user will have 100+ proven hooks searchable by angle, format, and competitor -- all backed by real ad spend data.
+
+---
+
+## Step 9: Print Summary
 
 ```
 === Analysis Complete ===
@@ -267,18 +279,47 @@ By format:
   Static Image: {count}
   ...
 
-Score distribution:
-  80-100 (Strong): {count}
-  60-79 (Good): {count}
-  40-59 (Average): {count}
-  0-39 (Weak): {count}
+Longevity breakdown:
+  Long-Runners (60d+): {count} -- PROVEN WINNERS
+  Performers (30-59d): {count}
+  Solid (14-29d): {count}
+  Testing (7-13d): {count}
+  Killed (<7d): {count}
 
-Top 5 highest-scoring ads:
-  1. [{score}] {competitor} -- "{hook}" ({angle}, {format})
+Top 5 longest-running ads:
+  1. [{days}d] {competitor} -- "{hook}" ({angle}, {format})
   2. ...
 
 Next step: Run /ad-swipe to browse your swipe file, or /ad-ideator to generate variations from winners.
 ```
+
+---
+
+## Step 9: Feed Proven Hooks to Reference File
+
+After analysis, extract hooks from Long-Runner ads (60d+) and append them to `reference/hook-swipe-file.md`.
+
+**Why this matters:** Aspirational competitors (Hormozi, Brunson, etc.) test 100-200 ads at a time with massive budgets. The hooks that survive 60+ days are battle-tested winners. By scraping their ads and extracting Long-Runner hooks, you're harvesting millions of dollars of A/B testing for free.
+
+### Process
+
+1. Filter all newly analyzed ads where `Longevity Tier = Long-Runner` AND hook exists (Hook Video or Hook Copy)
+2. Read current `reference/hook-swipe-file.md`
+3. For each Long-Runner hook:
+   - Check it's not already in the file (dedup by rough similarity -- don't add near-duplicates)
+   - Determine which angle category it belongs to (from the ad's Angle Category field)
+   - Append it under the correct section with attribution:
+     ```
+     - "{hook text}" -- [{competitor}, {days}d, {format}]
+     ```
+4. Write the updated file
+
+### Rules
+- Only Long-Runners (60d+). Anything shorter hasn't proven itself yet.
+- Include the competitor name and days active as attribution so you know the source and strength.
+- Aspirational tier competitors are HOOK FARMS -- they test at volume so you don't have to. Prioritize their Long-Runners.
+- Direct competitors' Long-Runners are equally valuable -- they've proven the hook works in YOUR niche.
+- The file grows over time. After a few months of daily polling, you'll have hundreds of proven hooks organized by angle.
 
 ---
 
@@ -290,5 +331,5 @@ Next step: Run /ad-swipe to browse your swipe file, or /ad-ideator to generate v
 4. **Hook extraction:** Split on sentence boundaries, not word count. Take first 1-2 complete sentences.
 5. **Airtable batch limit is 10.** Always batch updates.
 6. **DCO ads have no media.** Still classify them from body text and title.
-7. **Score is a heuristic, not gospel.** Longevity is the strongest signal -- an ad running 90+ days is a proven winner regardless of other scores.
+7. **Days Active is the grade.** No composite scoring. If an ad ran 60+ days, someone kept paying for it -- that's a proven winner regardless of how the creative looks to you.
 8. **Gemini visual analysis is optional.** The system works without it. Do not error if the key is missing.

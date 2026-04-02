@@ -57,6 +57,16 @@ Reference guide for ad creative formats, production requirements, and visual bes
 - Duration: 15-30 seconds
 - Best for: awareness campaigns, educational content, brand building
 
+### Faceless / No-Founder Ads
+- No person on camera. Built entirely from existing assets.
+- Formats: screenshot compilations, text-on-screen, stock B-roll with voiceover, slideshow of results, animated stats
+- Review screenshots (Google, Trustpilot, DMs) in a scrolling grid are extremely effective
+- Text-only ads with bold statement + simple background can outperform video
+- Customer photos with result captions (no filming needed)
+- Duration: 15-30 seconds for video compilations, static for image
+- Best for: businesses without a spokesperson, scaling beyond founder-face, testing at volume
+- Why it matters: removes the bottleneck of needing someone on camera. You can produce 50 variations in an hour.
+
 ### Static Image
 - Single image with text overlay
 - Must communicate the message without needing to read the caption

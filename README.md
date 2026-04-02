@@ -23,12 +23,14 @@ Scrape competitors. Analyze winners. Generate ads. Launch campaigns. Track perfo
 2. [Quick Start](#quick-start)
 3. [Skills](#skills)
 4. [The Swipe File](#the-swipe-file)
-5. [The Loop](#the-loop)
-6. [MCP Servers](#mcp-servers)
-7. [Compliance](#meta-ads-api-compliance)
-8. [Reference Files](#reference-files)
-9. [Requirements](#requirements)
-10. [License](#license)
+5. [The Hook Farm](#the-hook-farm)
+6. [The Loop](#the-loop)
+7. [n8n Automation](#n8n-automation-optional)
+8. [MCP Servers](#mcp-servers)
+9. [Compliance](#meta-ads-api-compliance)
+10. [Reference Files](#reference-files)
+11. [Requirements](#requirements)
+12. [License](#license)
 
 ---
 
@@ -75,15 +77,17 @@ The setup wizard interviews you about your business, creates your Airtable table
 
 | Command | What It Does |
 |---------|-------------|
-| `/ads-setup` | One-time installation wizard |
-| `/ad-poller` | Scrape competitors from Meta Ad Library |
-| `/ad-analyzer` | Transcribe, classify, and score ads |
-| `/ad-swipe` | Search and browse the swipe file |
+| `/ads-setup` | One-time installation wizard -- creates tables, resolves competitor Page IDs, loads Hormozi as default hook farm |
+| `/ad-poller` | Scrape competitors from Meta Ad Library (active + inactive ads) |
+| `/ad-analyzer` | Transcribe, classify, grade by Days Active, feed proven hooks to database |
+| `/ad-swipe` | Search and browse the swipe file by angle, format, tier, competitor |
 | `/ad-ideator` | Generate 5 variations from 1 winner |
-| `/ad-scripter` | Write video scripts and ad copy |
+| `/ad-scripter` | Write video scripts and ad copy using proven hooks and Long-Runner frameworks |
 | `/ad-brief` | Create filming cards and shot lists |
+| `/ad-creative` | Generate ad images and visual assets (works with Gemini, DALL-E, or Flux) |
+| `/ad-polish` | Strip AI patterns from ad copy -- makes it sound human-written |
 | `/ad-launch` | Launch Meta campaigns (Safe Mode default) |
-| `/ad-monitor` | Track performance, kill/watch/scale |
+| `/ad-monitor` | Track performance, kill/watch/scale decisions |
 
 ---
 
@@ -91,13 +95,31 @@ The setup wizard interviews you about your business, creates your Airtable table
 
 The swipe file is the brain of the system. It starts empty and grows every day:
 
-- **`/ad-poller`** adds new competitor ads
-- **`/ad-analyzer`** enriches them with transcripts, hooks, angles, and scores
+- **`/ad-poller`** adds new competitor ads (active + inactive)
+- **`/ad-analyzer`** enriches them with transcripts, hooks, angles, and longevity grades
 - **`/ad-monitor`** feeds your own winners back in
 
-Every ad gets classified by angle (Social Proof, Pain-to-Transformation, Tips, Authority, etc.), format (UGC, Talking Head, Motion Graphics, etc.), and scored 0-100.
+Every ad gets graded by **Days Active** -- the only metric that matters. If someone kept spending on it for 60+ days, it's a proven winner. No subjective scoring.
 
-When you run `/ad-ideator`, it pulls from the highest-scoring winners and generates variations for your business.
+| Days Active | Grade |
+|---|---|
+| 60+ | Long-Runner (proven winner) |
+| 30-59 | Performer |
+| 14-29 | Solid |
+| 7-13 | Testing |
+| <7 | Killed |
+
+Angle, format, hook, CTA type are **filters** for browsing -- not scoring factors. "Show me all Long-Runners with social proof angle" is how you find patterns.
+
+Long-Runner hooks automatically feed into the **Proven Hooks** database -- a growing collection of battle-tested hooks you can pull from when writing ads.
+
+## The Hook Farm
+
+The repo ships with **Alex Hormozi** as a default aspirational competitor. He tests 150-200 ads at any time with massive budgets. The hooks that survive 60+ days are battle-tested winners.
+
+First scrape pulls ~2000 of his ads. The analyzer finds the ~110 Long-Runners and extracts their hooks into your Proven Hooks database. When you run `/ad-scripter`, it reads those hooks and uses them as framework inspiration for your ads.
+
+The longer you run it, the better your hook library gets. Add more aspirational competitors and you're harvesting millions of dollars of A/B testing for free.
 
 ---
 
@@ -109,10 +131,31 @@ When `/ad-monitor` detects one of your ads has been performing for 30+ days:
 
 1. It marks it as a **Winner**
 2. Creates a new record in the Swipe File with `Winner Source = Own Performance`
-3. That winner is now available to `/ad-ideator` for multiplication
-4. Your best ads inform your next ads
+3. The hook feeds into the Proven Hooks database
+4. That winner is now available to `/ad-ideator` for multiplication
+5. Your best ads inform your next ads
 
 **The longer you run it, the smarter it gets.**
+
+---
+
+## n8n Automation (Optional)
+
+Want the poller to run daily without you touching it? Import the n8n workflow.
+
+```
+n8n/ad-poller-workflow.json
+```
+
+5-minute setup:
+1. Import the JSON into your n8n instance
+2. Add your Airtable + Apify credentials
+3. Replace 3 placeholder IDs
+4. Activate
+
+Runs daily at 6am. Scrapes all active competitors. Deduplicates. Calculates Days Active. Pushes new ads to Airtable. Your swipe file grows on autopilot.
+
+See [`n8n/README.md`](n8n/README.md) for full setup guide.
 
 ---
 
@@ -170,6 +213,8 @@ The `reference/` folder contains universal ad frameworks -- no personal data, no
 | `troubleshooting.md` | Lead gen diagnostic matrix and CRO checklist |
 | `pixel-tracking.md` | Conversions API setup and event filtering |
 | `retargeting.md` | Retargeting strategy framework |
+| `proof-hierarchy.md` | Proof checklist, testimonial questions, proof-driven ad formats |
+| `offer-check.md` | 5-point offer validation before running ads |
 | `compliance.md` | Meta API compliance guide, real ban cases, safe vs risky |
 
 ---

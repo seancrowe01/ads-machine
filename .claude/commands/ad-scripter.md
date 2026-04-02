@@ -26,6 +26,30 @@ Landing Page: (if configured)
 
 Also read: `reference/ad-frameworks.md`, `reference/copy-patterns.md`, `reference/hook-swipe-file.md`
 
+**Also pull from Airtable Proven Hooks table:**
+```
+Use Airtable MCP: list_records
+  base_id: {from CLAUDE.md}
+  table_id: {Proven Hooks table ID}
+  filter: {Longevity Tier}='Long-Runner'
+  fields: Hook Text, Angle Category, Format, Days Active, Source Competitor
+```
+
+Use these proven hooks as inspiration when writing hook variations. Prioritize hooks with the highest Days Active -- they've been validated with real money. Adapt the hook to the user's offer and audience, don't copy verbatim.
+
+**Also pull full copy from top Long-Runners for structure inspiration:**
+```
+Use Airtable MCP: list_records
+  base_id: {from CLAUDE.md}
+  table_id: {Swipe File table ID}
+  filter: {Longevity Tier}='Long-Runner'
+  sort: [{field: "Days Active", direction: "desc"}]
+  fields: Body Text, Title, Hook Copy, CTA Type, CTA Text, Angle Category, Ad Format Type, Days Active, Page Name
+  maxRecords: 5
+```
+
+Study how the top Long-Runners structure their copy -- the hook, the body flow, the CTA. These ads ran 60+ days backed by real spend. Mirror the structure, adapt the message to the user's offer. Do not copy word-for-word.
+
 ---
 
 ## Step 1: Select Pipeline Ideas
