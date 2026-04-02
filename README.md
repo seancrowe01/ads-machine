@@ -1,7 +1,5 @@
 <div align="center">
 
-<img src="docs/blueprint.png" alt="The Ads Machine Blueprint" width="800" />
-
 # The Ads Machine
 
 *A closed-loop ad intelligence system built in Claude Code.*
