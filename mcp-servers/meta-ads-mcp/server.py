@@ -11,11 +11,13 @@ COMPLIANCE NOTE:
 """
 
 import os
+import re
 import json
+import time
 import httpx
 from contextlib import asynccontextmanager
 from collections.abc import AsyncIterator
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from mcp.server.fastmcp import FastMCP, Context
 
 # --- Config -----------------------------------------------------------------
@@ -23,9 +25,53 @@ from mcp.server.fastmcp import FastMCP, Context
 API_VERSION = "v21.0"
 BASE_URL = f"https://graph.facebook.com/{API_VERSION}"
 CHARACTER_LIMIT = 25000
+RATE_LIMIT_CALLS = 200  # Max calls per hour per Meta guidelines
+RATE_LIMIT_WINDOW = 3600  # 1 hour in seconds
 
 ACCESS_TOKEN = os.environ.get("META_ACCESS_TOKEN", "")
 AD_ACCOUNT_ID = os.environ.get("META_AD_ACCOUNT_ID", "")
+
+
+# --- Input Validation -------------------------------------------------------
+
+def _validate_id(value: str, prefix: str = "") -> bool:
+    """Validate Meta API IDs. Must be numeric, optionally with a prefix like act_."""
+    if prefix and value.startswith(prefix):
+        return bool(re.match(r'^' + re.escape(prefix) + r'\d+$', value))
+    return bool(re.match(r'^\d+$', value))
+
+
+def _require_valid_id(value: str, name: str, prefix: str = "") -> None:
+    """Raise ValueError if ID format is invalid."""
+    if not value or not _validate_id(value, prefix):
+        expected = f"{prefix}XXXXX" if prefix else "numeric ID"
+        raise ValueError(f"Invalid {name}: '{value}'. Expected format: {expected}")
+
+
+# --- Rate Limiter -----------------------------------------------------------
+
+@dataclass
+class RateLimiter:
+    max_calls: int = RATE_LIMIT_CALLS
+    window: int = RATE_LIMIT_WINDOW
+    calls: list = field(default_factory=list)
+
+    def check(self) -> bool:
+        """Return True if call is allowed, False if rate limited."""
+        now = time.time()
+        self.calls = [t for t in self.calls if now - t < self.window]
+        if len(self.calls) >= self.max_calls:
+            return False
+        self.calls.append(now)
+        return True
+
+    def remaining(self) -> int:
+        now = time.time()
+        self.calls = [t for t in self.calls if now - t < self.window]
+        return max(0, self.max_calls - len(self.calls))
+
+
+rate_limiter = RateLimiter()
 
 
 # --- Lifespan: shared httpx client -----------------------------------------
@@ -37,7 +83,8 @@ class AppContext:
 
 @asynccontextmanager
 async def app_lifespan(server: FastMCP) -> AsyncIterator[AppContext]:
-    async with httpx.AsyncClient(timeout=60.0) as client:
+    headers = {"Authorization": f"Bearer {ACCESS_TOKEN}"}
+    async with httpx.AsyncClient(timeout=60.0, headers=headers) as client:
         yield AppContext(client=client)
 
 
@@ -47,10 +94,8 @@ mcp = FastMCP("meta_ads_mcp", lifespan=app_lifespan)
 # --- Helpers ----------------------------------------------------------------
 
 def _params(**kwargs) -> dict:
-    """Build query params, always including access_token."""
-    p = {"access_token": ACCESS_TOKEN}
-    p.update({k: v for k, v in kwargs.items() if v is not None})
-    return p
+    """Build query params. Token is in Authorization header, not query string."""
+    return {k: v for k, v in kwargs.items() if v is not None}
 
 
 def _truncate(text: str) -> str:
@@ -60,6 +105,8 @@ def _truncate(text: str) -> str:
 
 
 async def _get(ctx: Context, path: str, params: dict | None = None) -> dict:
+    if not rate_limiter.check():
+        return {"error": {"message": f"Rate limited. {rate_limiter.remaining()} calls remaining this hour. Wait and retry."}}
     client: httpx.AsyncClient = ctx.request_context.lifespan_context.client
     url = f"{BASE_URL}/{path}"
     resp = await client.get(url, params=params or _params())
@@ -68,9 +115,10 @@ async def _get(ctx: Context, path: str, params: dict | None = None) -> dict:
 
 
 async def _post(ctx: Context, path: str, data: dict) -> dict:
+    if not rate_limiter.check():
+        return {"error": {"message": f"Rate limited. {rate_limiter.remaining()} calls remaining this hour. Wait and retry."}}
     client: httpx.AsyncClient = ctx.request_context.lifespan_context.client
     url = f"{BASE_URL}/{path}"
-    data["access_token"] = ACCESS_TOKEN
     resp = await client.post(url, data=data)
     resp.raise_for_status()
     return resp.json()
@@ -486,6 +534,7 @@ async def create_campaign(
         special_ad_categories: Use "NONE" for no special category. Or "HOUSING", "EMPLOYMENT", "CREDIT".
     """
     try:
+        _require_valid_id(AD_ACCOUNT_ID, "ad account ID", prefix="act_")
         data = {
             "name": name,
             "objective": objective,
@@ -529,6 +578,7 @@ async def update_campaign(
         lifetime_budget: New lifetime budget in cents.
     """
     try:
+        _require_valid_id(campaign_id, "campaign ID")
         data = {}
         if name:
             data["name"] = name
@@ -594,6 +644,8 @@ async def create_adset(
         bid_amount: Bid amount in cents (required for BID_CAP strategy).
     """
     try:
+        _require_valid_id(campaign_id, "campaign ID")
+        _require_valid_id(AD_ACCOUNT_ID, "ad account ID", prefix="act_")
         countries = [c.strip() for c in targeting_countries.split(",")]
         targeting = {
             "geo_locations": {"countries": countries},
@@ -658,6 +710,7 @@ async def update_adset(
         bid_amount: New bid amount in cents.
     """
     try:
+        _require_valid_id(adset_id, "ad set ID")
         data = {}
         if name:
             data["name"] = name
@@ -705,6 +758,9 @@ async def create_ad(
         status: ACTIVE or PAUSED (default PAUSED).
     """
     try:
+        _require_valid_id(adset_id, "ad set ID")
+        _require_valid_id(creative_id, "creative ID")
+        _require_valid_id(AD_ACCOUNT_ID, "ad account ID", prefix="act_")
         data = {
             "adset_id": adset_id,
             "name": name,
@@ -741,6 +797,7 @@ async def update_ad(
         creative_id: New creative ID to swap in.
     """
     try:
+        _require_valid_id(ad_id, "ad ID")
         data = {}
         if name:
             data["name"] = name

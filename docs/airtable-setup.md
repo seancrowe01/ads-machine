@@ -55,7 +55,7 @@ Create a new table called "Ad Swipe File" with these fields:
 | Angle Category | Single select | Social Proof, Pain-to-Transformation, Tips/Education, Growth Problem, Profit Problem, Authority, Scarcity/Urgency, Behind-the-Scenes, Controversy, Comparison |
 | Ad Format Type | Single select | UGC Testimonial, UGC Talking Head, Interview/Case Study, Motion Graphics, Static Image, Screenshot/Demo, Slideshow, Other |
 | Visual Style | Long text | |
-| Score | Number (integer) | |
+| Impressions Rank | Number (integer) | Position in Ad Library sort (1 = most impressions) |
 | Scrape Date | Date | ISO format |
 | Scrape Batch ID | Single line text | |
 | Is Analyzed | Checkbox | |

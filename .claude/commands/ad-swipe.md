@@ -25,15 +25,15 @@ Ad Swipe File Table: YOUR_SWIPE_FILE_TABLE_ID
 
 Ask the user what they are looking for. Common queries:
 
-- "Show me the top winners" -- sort by Score desc, filter Days Active >= 30
+- "Show me the top winners" -- sort by Days Active desc, filter Longevity Tier = Long-Runner
 - "Social proof ads" -- filter Angle Category = Social Proof
 - "UGC talking head ads" -- filter Ad Format Type = UGC Talking Head
 - "What is [competitor] running?" -- filter by Competitor name
-- "Long-runners" -- filter Longevity Tier = Long-Runner (90d+)
+- "Long-runners" -- filter Longevity Tier = Long-Runner
 - "Video ads with transcripts" -- filter Display Format = Video, Transcript is not empty
-- "Best hooks" -- sort by Score desc, show Hook Video and Hook Copy fields
+- "Best hooks" -- sort by Days Active desc, show Hook Video and Hook Copy fields
 
-If the user just says "show me the swipe file" or similar, default to: top 20 ads by Score, Status = Active.
+If the user just says "show me the swipe file" or similar, default to: top 20 ads by Days Active, Longevity Tier = Long-Runner or Performer.
 
 ---
 
@@ -46,17 +46,17 @@ Build a filter formula based on the user's request.
 | Request | Airtable Filter |
 |---------|----------------|
 | Winners | `AND({Status}='Active', {Days Active}>=30)` |
-| Long-runners | `{Longevity Tier}='Long-Runner (90d+)'` |
+| Long-runners | `{Longevity Tier}='Long-Runner'` |
 | By angle | `{Angle Category}='{angle}'` |
 | By format | `{Ad Format Type}='{format}'` |
 | By competitor | `FIND('{name}', {Competitor})` |
 | Starred | `{Status}='Starred'` |
-| High score | `{Score}>=70` |
+| 30d+ | `{Days Active}>=30` |
 | Unanalyzed | `{Is Analyzed}=FALSE()` |
 
 Combine filters with `AND()` when multiple criteria are specified.
 
-Sort by `Score` descending unless the user specifies otherwise.
+Sort by `Days Active` descending unless the user specifies otherwise.
 
 Limit to 20 results unless the user asks for more.
 
@@ -101,8 +101,8 @@ After showing results, offer these actions:
 
 ## CRITICAL RULES
 
-1. Always show the Score, Competitor, Angle, and Hook -- these are the most useful fields for scanning.
+1. Always show Days Active, Longevity Tier, Competitor, Angle, and Hook -- these are the most useful fields for scanning.
 2. Truncate Body Text to 100 characters in the list view. Show full text only when the user asks for details.
 3. Include the Ad Library URL so they can view the actual creative.
 4. If the swipe file is empty, tell them to run `/ad-poller` first.
-5. Default sort is Score descending. Longevity is the next best sort.
+5. Default sort is Days Active descending.

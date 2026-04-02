@@ -204,7 +204,6 @@ Use Airtable MCP: create_record
     Hook Copy: {hook from Pipeline}
     Angle Category: {angle from Pipeline}
     Ad Format Type: {format from Pipeline}
-    Score: 85 (minimum score for verified winners)
     Winner Source: "Own Performance"
     Is Analyzed: true
 ```
